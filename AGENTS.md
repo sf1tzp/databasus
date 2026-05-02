@@ -1577,4 +1577,4 @@ Always use `ClipboardHelper` (`shared/lib/ClipboardHelper.ts`) for clipboard ope
 
 ## Summary
 
-This document consolidates all project rules and guidelines. These standards should be followed consistently across all code in the Postgresus project to maintain code quality, readability, and maintainability.
+This document consolidates all project rules and guidelines. These standards should be followed consistently across all code in the Databasus project to maintain code quality, readability, and maintainability.

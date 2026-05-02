@@ -1,11 +1,11 @@
-version: "3"
-
 services:
+  # ================================================================
+  # Backend dev services
+  # ================================================================
+
   # For development only, because this DB
-  # exposes it's port to the public
-  dev-db:
-    env_file:
-      - .env
+  # exposes its port to the public
+  backend-db:
     image: postgres:17
     ports:
       - "5437:5437"
@@ -15,18 +15,18 @@ services:
       - POSTGRES_PASSWORD=${DEV_DB_PASSWORD}
     volumes:
       - ./pgdata:/var/lib/postgresql/data
-    container_name: dev-db
+    container_name: backend-db
     command: -p 5437
     shm_size: 10gb
 
   # Valkey for caching
-  dev-valkey:
+  backend-valkey:
     image: valkey/valkey:9.0.1-alpine
     ports:
-      - "${VALKEY_PORT:-6379}:6379"
+      - "${VALKEY_PORT}:6379"
     volumes:
       - ./valkey-data:/data
-    container_name: dev-valkey
+    container_name: backend-valkey
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 10s
@@ -35,9 +35,9 @@ services:
       start_period: 20s
 
   # VictoriaLogs for external logging
-  victoria-logs:
+  backend-victoria-logs:
     image: victoriametrics/victoria-logs:latest
-    container_name: victoria-logs
+    container_name: backend-victoria-logs
     ports:
       - "9428:9428"
     command:
@@ -48,12 +48,47 @@ services:
       - ./victoria-logs-data:/victoria-logs-data
     restart: unless-stopped
 
+  # ================================================================
+  # Agent dev services
+  # ================================================================
+
+  agent-db:
+    image: postgres:17
+    container_name: agent-db
+    environment:
+      POSTGRES_DB: devdb
+      POSTGRES_USER: devuser
+      POSTGRES_PASSWORD: devpassword
+    ports:
+      - "7433:5432"
+    command:
+      - bash
+      - -c
+      - |
+        mkdir -p /wal-queue && chown postgres:postgres /wal-queue
+        exec docker-entrypoint.sh postgres \
+          -c wal_level=replica \
+          -c max_wal_senders=3 \
+          -c archive_mode=on \
+          -c "archive_command=cp %p /wal-queue/%f"
+    volumes:
+      - ./wal-queue:/wal-queue
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devuser -d devdb"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  # ================================================================
+  # Test containers
+  # ================================================================
+
   # Test MinIO container
   test-minio:
     image: minio/minio:latest
     ports:
-      - "${TEST_MINIO_PORT:-9000}:9000"
-      - "${TEST_MINIO_CONSOLE_PORT:-9001}:9001"
+      - "${TEST_MINIO_PORT}:9000"
+      - "${TEST_MINIO_CONSOLE_PORT}:9001"
     environment:
       - MINIO_ROOT_USER=testuser
       - MINIO_ROOT_PASSWORD=testpassword
@@ -142,7 +177,7 @@ services:
   test-azurite:
     image: mcr.microsoft.com/azure-storage/azurite
     ports:
-      - "${TEST_AZURITE_BLOB_PORT:-10000}:10000"
+      - "${TEST_AZURITE_BLOB_PORT}:10000"
     container_name: test-azurite
     command: azurite-blob --blobHost 0.0.0.0
 
@@ -150,7 +185,7 @@ services:
   test-nas:
     image: dperson/samba:latest
     ports:
-      - "${TEST_NAS_PORT:-445}:445"
+      - "${TEST_NAS_PORT}:445"
     environment:
       - USERID=1000
       - GROUPID=1000
@@ -166,7 +201,7 @@ services:
   test-ftp:
     image: stilliard/pure-ftpd:latest
     ports:
-      - "${TEST_FTP_PORT:-21}:21"
+      - "${TEST_FTP_PORT}:21"
       - "30000-30009:30000-30009"
     environment:
       - PUBLICHOST=localhost
@@ -180,7 +215,7 @@ services:
   test-sftp:
     image: atmoz/sftp:latest
     ports:
-      - "${TEST_SFTP_PORT:-7008}:22"
+      - "${TEST_SFTP_PORT}:22"
     command: testuser:testpassword:1001::upload
     container_name: test-sftp
 
@@ -188,7 +223,7 @@ services:
   test-mysql-57:
     image: mysql:5.7
     ports:
-      - "${TEST_MYSQL_57_PORT:-33057}:3306"
+      - "${TEST_MYSQL_57_PORT}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=testdb
@@ -207,7 +242,7 @@ services:
   test-mysql-80:
     image: mysql:8.0
     ports:
-      - "${TEST_MYSQL_80_PORT:-33080}:3306"
+      - "${TEST_MYSQL_80_PORT}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=testdb
@@ -226,7 +261,7 @@ services:
   test-mysql-84:
     image: mysql:8.4
     ports:
-      - "${TEST_MYSQL_84_PORT:-33084}:3306"
+      - "${TEST_MYSQL_84_PORT}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=testdb
@@ -245,7 +280,7 @@ services:
   test-mysql-90:
     image: mysql:9.5
     ports:
-      - "${TEST_MYSQL_90_PORT:-33090}:3306"
+      - "${TEST_MYSQL_90_PORT}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=testdb
@@ -265,7 +300,7 @@ services:
   test-mariadb-55:
     image: mariadb:5.5
     ports:
-      - "${TEST_MARIADB_55_PORT:-33055}:3306"
+      - "${TEST_MARIADB_55_PORT}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=testdb
@@ -284,7 +319,7 @@ services:
   test-mariadb-101:
     image: mariadb:10.1
     ports:
-      - "${TEST_MARIADB_101_PORT:-33101}:3306"
+      - "${TEST_MARIADB_101_PORT}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=testdb
@@ -303,7 +338,7 @@ services:
   test-mariadb-102:
     image: mariadb:10.2
     ports:
-      - "${TEST_MARIADB_102_PORT:-33102}:3306"
+      - "${TEST_MARIADB_102_PORT}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=testdb
@@ -322,7 +357,7 @@ services:
   test-mariadb-103:
     image: mariadb:10.3
     ports:
-      - "${TEST_MARIADB_103_PORT:-33103}:3306"
+      - "${TEST_MARIADB_103_PORT}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=testdb
@@ -341,7 +376,7 @@ services:
   test-mariadb-104:
     image: mariadb:10.4
     ports:
-      - "${TEST_MARIADB_104_PORT:-33104}:3306"
+      - "${TEST_MARIADB_104_PORT}:3306"
     environment:
       - MARIADB_ROOT_PASSWORD=rootpassword
       - MARIADB_DATABASE=testdb
@@ -360,7 +395,7 @@ services:
   test-mariadb-105:
     image: mariadb:10.5
     ports:
-      - "${TEST_MARIADB_105_PORT:-33105}:3306"
+      - "${TEST_MARIADB_105_PORT}:3306"
     environment:
       - MARIADB_ROOT_PASSWORD=rootpassword
       - MARIADB_DATABASE=testdb
@@ -379,7 +414,7 @@ services:
   test-mariadb-106:
     image: mariadb:10.6
     ports:
-      - "${TEST_MARIADB_106_PORT:-33106}:3306"
+      - "${TEST_MARIADB_106_PORT}:3306"
     environment:
       - MARIADB_ROOT_PASSWORD=rootpassword
       - MARIADB_DATABASE=testdb
@@ -398,7 +433,7 @@ services:
   test-mariadb-1011:
     image: mariadb:10.11
     ports:
-      - "${TEST_MARIADB_1011_PORT:-33111}:3306"
+      - "${TEST_MARIADB_1011_PORT}:3306"
     environment:
       - MARIADB_ROOT_PASSWORD=rootpassword
       - MARIADB_DATABASE=testdb
@@ -417,7 +452,7 @@ services:
   test-mariadb-114:
     image: mariadb:11.4
     ports:
-      - "${TEST_MARIADB_114_PORT:-33114}:3306"
+      - "${TEST_MARIADB_114_PORT}:3306"
     environment:
       - MARIADB_ROOT_PASSWORD=rootpassword
       - MARIADB_DATABASE=testdb
@@ -436,7 +471,7 @@ services:
   test-mariadb-118:
     image: mariadb:11.8
     ports:
-      - "${TEST_MARIADB_118_PORT:-33118}:3306"
+      - "${TEST_MARIADB_118_PORT}:3306"
     environment:
       - MARIADB_ROOT_PASSWORD=rootpassword
       - MARIADB_DATABASE=testdb
@@ -455,7 +490,7 @@ services:
   test-mariadb-120:
     image: mariadb:12.0
     ports:
-      - "${TEST_MARIADB_120_PORT:-33120}:3306"
+      - "${TEST_MARIADB_120_PORT}:3306"
     environment:
       - MARIADB_ROOT_PASSWORD=rootpassword
       - MARIADB_DATABASE=testdb
@@ -476,7 +511,7 @@ services:
     image: mongo:4.0
     container_name: test-mongodb-40
     ports:
-      - "${TEST_MONGODB_40_PORT:-27040}:27017"
+      - "${TEST_MONGODB_40_PORT}:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpassword
@@ -492,7 +527,7 @@ services:
     image: mongo:4.2
     container_name: test-mongodb-42
     ports:
-      - "${TEST_MONGODB_42_PORT:-27042}:27017"
+      - "${TEST_MONGODB_42_PORT}:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpassword
@@ -508,7 +543,7 @@ services:
     image: mongo:4.4
     container_name: test-mongodb-44
     ports:
-      - "${TEST_MONGODB_44_PORT:-27044}:27017"
+      - "${TEST_MONGODB_44_PORT}:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpassword
@@ -524,7 +559,7 @@ services:
     image: mongo:5.0
     container_name: test-mongodb-50
     ports:
-      - "${TEST_MONGODB_50_PORT:-27050}:27017"
+      - "${TEST_MONGODB_50_PORT}:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpassword
@@ -540,7 +575,7 @@ services:
     image: mongo:6.0
     container_name: test-mongodb-60
     ports:
-      - "${TEST_MONGODB_60_PORT:-27060}:27017"
+      - "${TEST_MONGODB_60_PORT}:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpassword
@@ -556,7 +591,7 @@ services:
     image: mongo:7.0
     container_name: test-mongodb-70
     ports:
-      - "${TEST_MONGODB_70_PORT:-27070}:27017"
+      - "${TEST_MONGODB_70_PORT}:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpassword
@@ -572,7 +607,7 @@ services:
     image: mongo:8.2.3-noble
     container_name: test-mongodb-82
     ports:
-      - "${TEST_MONGODB_82_PORT:-27082}:27017"
+      - "${TEST_MONGODB_82_PORT}:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpassword

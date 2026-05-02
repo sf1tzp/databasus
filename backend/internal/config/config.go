@@ -70,10 +70,6 @@ type EnvVariables struct {
 	PaddlePriceID       string `env:"PADDLE_PRICE_ID"`
 	PaddleClientToken   string `env:"PADDLE_CLIENT_TOKEN"`
 
-	TestGoogleDriveClientID     string `env:"TEST_GOOGLE_DRIVE_CLIENT_ID"`
-	TestGoogleDriveClientSecret string `env:"TEST_GOOGLE_DRIVE_CLIENT_SECRET"`
-	TestGoogleDriveTokenJSON    string `env:"TEST_GOOGLE_DRIVE_TOKEN_JSON"`
-
 	TestPostgres12Port string `env:"TEST_POSTGRES_12_PORT"`
 	TestPostgres13Port string `env:"TEST_POSTGRES_13_PORT"`
 	TestPostgres14Port string `env:"TEST_POSTGRES_14_PORT"`
@@ -126,13 +122,6 @@ type EnvVariables struct {
 	CloudflareTurnstileSecretKey string `env:"CLOUDFLARE_TURNSTILE_SECRET_KEY"`
 	CloudflareTurnstileSiteKey   string `env:"CLOUDFLARE_TURNSTILE_SITE_KEY"`
 
-	// testing Supabase
-	TestSupabaseHost     string `env:"TEST_SUPABASE_HOST"`
-	TestSupabasePort     string `env:"TEST_SUPABASE_PORT"`
-	TestSupabaseUsername string `env:"TEST_SUPABASE_USERNAME"`
-	TestSupabasePassword string `env:"TEST_SUPABASE_PASSWORD"`
-	TestSupabaseDatabase string `env:"TEST_SUPABASE_DATABASE"`
-
 	// SMTP configuration (optional)
 	SMTPHost     string `env:"SMTP_HOST"`
 	SMTPPort     int    `env:"SMTP_PORT"`
@@ -154,7 +143,6 @@ func GetEnv() *EnvVariables {
 }
 
 func loadEnvVariables() {
-	// Get current working directory
 	cwd, err := os.Getwd()
 	if err != nil {
 		log.Warn("could not get current working directory", "error", err)
@@ -175,25 +163,14 @@ func loadEnvVariables() {
 		backendRoot = parent
 	}
 
-	envPaths := []string{
-		filepath.Join(cwd, ".env"),
-		filepath.Join(backendRoot, ".env"),
-	}
+	envPath := filepath.Join(filepath.Dir(backendRoot), ".env")
 
-	var loaded bool
-	for _, path := range envPaths {
-		log.Info("Trying to load .env", "path", path)
-		if err := godotenv.Load(path); err == nil {
-			log.Info("Successfully loaded .env", "path", path)
-			loaded = true
-			break
-		}
-	}
-
-	if !loaded {
-		log.Error("Error loading .env file: could not find .env in any location")
+	log.Info("Trying to load .env", "path", envPath)
+	if err := godotenv.Load(envPath); err != nil {
+		log.Error("Error loading .env file from repo root", "path", envPath, "error", err)
 		os.Exit(1)
 	}
+	log.Info("Successfully loaded .env", "path", envPath)
 
 	err = cleanenv.ReadEnv(&env)
 	if err != nil {

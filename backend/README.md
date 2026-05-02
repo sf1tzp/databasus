@@ -1,10 +1,10 @@
 # Before run
 
-Keep in mind: you need to use dev-db from docker-compose.yml in this folder
-instead of databasus-db from docker-compose.yml in the root folder.
+Keep in mind: you need to use `backend-db` from the root `docker-compose.yml`
+instead of `databasus-db` from production deployments.
 
-> Copy .env.example to .env
-> Copy docker-compose.yml.example to docker-compose.yml (for development only)
+> Copy .env.example to .env in the repo root (single source for backend, frontend, and docker compose)
+> Copy docker-compose.example.yml to docker-compose.yml in the repo root (for development only)
 > Go to tools folder and install Postgres versions
 
 # Run
