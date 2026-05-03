@@ -46,23 +46,3 @@ To generate swagger docs:
 Swagger URL is:
 
 > http://localhost:4005/api/v1/docs/swagger/index.html#/
-
-# Project structure
-
-Default endpoint structure is:
-
-/feature
-/feature/controller.go
-/feature/service.go
-/feature/repository.go
-/feature/model.go
-/feature/dto.go
-
-If there are couple of models:
-/feature/models/model1.go
-/feature/models/model2.go
-...
-
-# Project rules
-
-Read .cursor/rules folder, it contains all the rules for the project.
