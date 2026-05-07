@@ -2,7 +2,8 @@
 
 A Kubernetes operator that manages database backups declaratively via Custom Resource Definitions (CRDs). Instead of configuring databases, schedules, storages, and notifiers through the [Databasus](www.databasus.com) UI, define them as Kubernetes resources and let the operator reconcile them against the databasus API.
 
-_Forked from [databasus/databasus](https://github.com/databasus/databasus). The operator is in an early, but usable, stage of development. Please direct your feedback to [the proposal upstream](https://github.com/databasus/databasus/pull/534)._
+_Forked from [databasus/databasus](https://github.com/databasus/databasus). The operator is in an early, but usable, stage of development. I'll be dogfooding this myself, but your milage may vary. The databasus API is subject to change and currently makes no promises regarding backwards compatibilty._
+
 
 <img width="1181" height="665" alt="Screenshot 2026-04-28 at 19 08 55" src="https://github.com/user-attachments/assets/e5d3c6c0-c039-4711-b20c-d468106fc8b8" />
 
