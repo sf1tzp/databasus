@@ -3,7 +3,6 @@ package system_agent
 import (
 	"net/http"
 	"os"
-	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,6 +12,16 @@ type AgentController struct{}
 func (c *AgentController) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/system/agent", c.DownloadAgent)
 	router.GET("/system/verification-agent", c.DownloadVerificationAgent)
+}
+
+var agentBinaryPaths = map[string]string{
+	"amd64": "agent-binaries/databasus-agent-linux-amd64",
+	"arm64": "agent-binaries/databasus-agent-linux-arm64",
+}
+
+var verificationAgentBinaryPaths = map[string]string{
+	"amd64": "agent-binaries/databasus-verification-agent-linux-amd64",
+	"arm64": "agent-binaries/databasus-verification-agent-linux-arm64",
 }
 
 // DownloadAgent
@@ -26,20 +35,14 @@ func (c *AgentController) RegisterRoutes(router *gin.RouterGroup) {
 // @Failure 404 {object} map[string]string
 // @Router /system/agent [get]
 func (c *AgentController) DownloadAgent(ctx *gin.Context) {
-	arch := ctx.Query("arch")
-	if arch != "amd64" && arch != "arm64" {
+	binaryPath, isOk := agentBinaryPaths[ctx.Query("arch")]
+	if !isOk {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "arch must be amd64 or arm64"})
 		return
 	}
 
-	binaryName := "databasus-agent-linux-" + arch
-	binaryPath := filepath.Join("agent-binaries", binaryName)
-
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
-		ctx.JSON(
-			http.StatusNotFound,
-			gin.H{"error": "agent binary not found for architecture: " + arch},
-		)
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "agent binary not found"})
 		return
 	}
 
@@ -59,20 +62,14 @@ func (c *AgentController) DownloadAgent(ctx *gin.Context) {
 // @Failure 404 {object} map[string]string
 // @Router /system/verification-agent [get]
 func (c *AgentController) DownloadVerificationAgent(ctx *gin.Context) {
-	arch := ctx.Query("arch")
-	if arch != "amd64" && arch != "arm64" {
+	binaryPath, isOk := verificationAgentBinaryPaths[ctx.Query("arch")]
+	if !isOk {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "arch must be amd64 or arm64"})
 		return
 	}
 
-	binaryName := "databasus-verification-agent-linux-" + arch
-	binaryPath := filepath.Join("agent-binaries", binaryName)
-
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
-		ctx.JSON(
-			http.StatusNotFound,
-			gin.H{"error": "verification agent binary not found for architecture: " + arch},
-		)
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "verification agent binary not found"})
 		return
 	}
 
