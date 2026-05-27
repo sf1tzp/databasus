@@ -467,8 +467,10 @@ func Test_NotifierSensitiveDataLifecycle_AllTypes(t *testing.T) {
 					Name:         "Test Telegram Notifier",
 					NotifierType: NotifierTypeTelegram,
 					TelegramNotifier: &telegram_notifier.TelegramNotifier{
-						BotToken:     "original-bot-token-12345",
-						TargetChatID: "123456789",
+						BotToken:           "original-bot-token-12345",
+						TargetChatID:       "123456789",
+						IsHTTPProxyEnabled: true,
+						HTTPProxyURL:       "http://user:password@proxy.example.com:3128",
 					},
 				}
 			},
@@ -479,8 +481,10 @@ func Test_NotifierSensitiveDataLifecycle_AllTypes(t *testing.T) {
 					Name:         "Updated Telegram Notifier",
 					NotifierType: NotifierTypeTelegram,
 					TelegramNotifier: &telegram_notifier.TelegramNotifier{
-						BotToken:     "",
-						TargetChatID: "987654321",
+						BotToken:           "",
+						TargetChatID:       "987654321",
+						IsHTTPProxyEnabled: true,
+						HTTPProxyURL:       "",
 					},
 				}
 			},
@@ -492,9 +496,21 @@ func Test_NotifierSensitiveDataLifecycle_AllTypes(t *testing.T) {
 				)
 				decrypted := decryptField(t, notifier.TelegramNotifier.BotToken)
 				assert.Equal(t, "original-bot-token-12345", decrypted)
+
+				assert.True(
+					t,
+					isEncrypted(notifier.TelegramNotifier.HTTPProxyURL),
+					"HTTPProxyURL should be encrypted in DB",
+				)
+				decryptedProxyURL := decryptField(t, notifier.TelegramNotifier.HTTPProxyURL)
+				assert.Equal(t, "http://user:password@proxy.example.com:3128", decryptedProxyURL)
+				assert.True(t, notifier.TelegramNotifier.IsHTTPProxyEnabled)
 			},
 			verifyHiddenData: func(t *testing.T, notifier *Notifier) {
 				assert.Equal(t, "", notifier.TelegramNotifier.BotToken)
+				assert.Equal(t, "", notifier.TelegramNotifier.HTTPProxyURL)
+				assert.True(t, notifier.TelegramNotifier.IsHTTPProxyEnabled)
+				assert.True(t, notifier.TelegramNotifier.HasHTTPProxyURL)
 			},
 		},
 		{
@@ -818,8 +834,10 @@ func Test_CreateNotifier_AllSensitiveFieldsEncryptedInDB(t *testing.T) {
 					Name:         "Test Telegram",
 					NotifierType: NotifierTypeTelegram,
 					TelegramNotifier: &telegram_notifier.TelegramNotifier{
-						BotToken:     "plain-telegram-token-123",
-						TargetChatID: "123456789",
+						BotToken:           "plain-telegram-token-123",
+						TargetChatID:       "123456789",
+						IsHTTPProxyEnabled: true,
+						HTTPProxyURL:       "http://proxy.example.com:8080",
 					},
 				}
 			},
@@ -831,6 +849,14 @@ func Test_CreateNotifier_AllSensitiveFieldsEncryptedInDB(t *testing.T) {
 				)
 				decrypted := decryptField(t, notifier.TelegramNotifier.BotToken)
 				assert.Equal(t, "plain-telegram-token-123", decrypted)
+
+				assert.True(
+					t,
+					isEncrypted(notifier.TelegramNotifier.HTTPProxyURL),
+					"HTTPProxyURL should be encrypted",
+				)
+				decryptedProxyURL := decryptField(t, notifier.TelegramNotifier.HTTPProxyURL)
+				assert.Equal(t, "http://proxy.example.com:8080", decryptedProxyURL)
 			},
 		},
 		{
