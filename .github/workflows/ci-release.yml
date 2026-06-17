@@ -317,7 +317,7 @@ jobs:
       - name: Install database client dependencies
         run: |
           apt-get update -qq
-          apt-get install -y -qq libncurses6 libpq5
+          apt-get install -y -qq libncurses6 libpq5 zstd
           ln -sf /usr/lib/x86_64-linux-gnu/libncurses.so.6 /usr/lib/x86_64-linux-gnu/libncurses.so.5 || true
           ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5 || true
 

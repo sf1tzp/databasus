@@ -19,7 +19,7 @@ require (
 	github.com/minio/minio-go/v7 v7.0.100
 	github.com/moby/moby/api v1.54.1
 	github.com/pkg/sftp v1.13.10
-	github.com/rclone/rclone v1.74.1
+	github.com/rclone/rclone v1.74.3
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/shirou/gopsutil/v4 v4.26.3
 	github.com/stretchr/testify v1.11.1
@@ -29,7 +29,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.42.0
 	github.com/valkey-io/valkey-go v1.0.70
 	go.mongodb.org/mongo-driver v1.17.9
-	golang.org/x/crypto v0.50.0
+	golang.org/x/crypto v0.52.0
 	gorm.io/driver/postgres v1.5.11
 	gorm.io/gorm v1.26.1
 )
@@ -118,7 +118,7 @@ require (
 	github.com/flynn/noise v1.1.0 // indirect
 	github.com/go-chi/chi/v5 v5.2.5 // indirect
 	github.com/go-darwin/apfs v0.0.0-20211011131704-f84b94dbf348 // indirect
-	github.com/go-git/go-billy/v5 v5.8.0 // indirect
+	github.com/go-git/go-billy/v5 v5.9.0 // indirect
 	github.com/go-openapi/errors v0.22.6 // indirect
 	github.com/go-openapi/strfmt v0.25.0 // indirect
 	github.com/go-resty/resty/v2 v2.17.2 // indirect
@@ -213,9 +213,9 @@ require (
 	go.etcd.io/bbolt v1.4.3 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/exp v0.0.0-20260212183809-81e46e3db34a // indirect
-	golang.org/x/image v0.39.0 // indirect
-	golang.org/x/term v0.42.0 // indirect
+	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
+	golang.org/x/image v0.41.0 // indirect
+	golang.org/x/term v0.43.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/validator.v2 v2.0.1 // indirect
@@ -301,12 +301,12 @@ require (
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	golang.org/x/arch v0.17.0 // indirect
-	golang.org/x/net v0.53.0 // indirect
+	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/text v0.36.0 // indirect
-	golang.org/x/tools v0.43.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/tools v0.44.0 // indirect
 	google.golang.org/api v0.275.0
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
