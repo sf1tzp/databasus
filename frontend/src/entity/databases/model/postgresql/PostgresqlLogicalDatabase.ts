@@ -22,6 +22,7 @@ export interface PostgresqlLogicalDatabase {
   includeSchemas?: string[];
   excludeTables?: string[];
   cpuCount: number;
+  isSkipUserMappings?: boolean;
 
   // restore settings (not saved to DB)
   isExcludeExtensions?: boolean;

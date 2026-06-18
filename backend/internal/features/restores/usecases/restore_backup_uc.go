@@ -30,7 +30,7 @@ func (uc *RestoreBackupUsecase) Execute(
 	restoringToDB *databases.Database,
 	backup *backups_core_logical.LogicalBackup,
 	storage *storages.Storage,
-	isExcludeExtensions bool,
+	options restores_core.RestoreOptions,
 ) error {
 	switch originalDB.Type {
 	case databases.DatabaseTypePostgresLogical:
@@ -42,7 +42,7 @@ func (uc *RestoreBackupUsecase) Execute(
 			restore,
 			backup,
 			storage,
-			isExcludeExtensions,
+			options,
 		)
 	case databases.DatabaseTypeMysql:
 		return uc.restoreMysqlBackupUsecase.Execute(

@@ -39,11 +39,12 @@ type PostgresqlLogicalDatabase struct {
 	SslRootCert   string                            `json:"sslRootCert"   gorm:"column:ssl_root_cert;type:text;not null;default:''"`
 
 	// backup settings
-	IncludeSchemas       []string `json:"includeSchemas" gorm:"-"`
-	IncludeSchemasString string   `json:"-"              gorm:"column:include_schemas;type:text;not null;default:''"`
-	ExcludeTables        []string `json:"excludeTables"  gorm:"-"`
-	ExcludeTablesString  string   `json:"-"              gorm:"column:exclude_tables;type:text;not null;default:''"`
-	CpuCount             int      `json:"cpuCount"       gorm:"column:cpu_count;type:int;not null;default:1"`
+	IncludeSchemas       []string `json:"includeSchemas"     gorm:"-"`
+	IncludeSchemasString string   `json:"-"                  gorm:"column:include_schemas;type:text;not null;default:''"`
+	ExcludeTables        []string `json:"excludeTables"      gorm:"-"`
+	ExcludeTablesString  string   `json:"-"                  gorm:"column:exclude_tables;type:text;not null;default:''"`
+	CpuCount             int      `json:"cpuCount"           gorm:"column:cpu_count;type:int;not null;default:1"`
+	IsSkipUserMappings   bool     `json:"isSkipUserMappings" gorm:"column:is_skip_user_mappings;type:bool;not null;default:false"`
 
 	// restore settings (not saved to DB)
 	IsExcludeExtensions bool `json:"isExcludeExtensions" gorm:"-"`
@@ -219,6 +220,7 @@ func (p *PostgresqlLogicalDatabase) Update(incoming *PostgresqlLogicalDatabase) 
 	p.IncludeSchemas = incoming.IncludeSchemas
 	p.ExcludeTables = incoming.ExcludeTables
 	p.CpuCount = incoming.CpuCount
+	p.IsSkipUserMappings = incoming.IsSkipUserMappings
 
 	if incoming.Password != "" {
 		p.Password = incoming.Password
@@ -947,6 +949,36 @@ func testSingleDatabaseConnection(
 	// Verify user has sufficient permissions for backup operations
 	if err := checkBackupPermissions(ctx, conn, postgresDb.IncludeSchemas); err != nil {
 		return err
+	}
+
+	if !postgresDb.IsSkipUserMappings {
+		if err := checkUserMappingsReadable(ctx, conn); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// PostgreSQL masks pg_user_mappings.umoptions (credentials) from any role that is not a superuser,
+// the foreign server owner, or the mapping's own user. Such a role's pg_dump emits a bare CREATE
+// USER MAPPING that loses the credentials and breaks restore for FDWs that require them (e.g.
+// oracle_fdw), so refuse the backup when any mapping's options are hidden.
+func checkUserMappingsReadable(ctx context.Context, conn *pgx.Conn) error {
+	var unreadableCount int
+	err := conn.QueryRow(ctx, "SELECT count(*) FROM pg_user_mappings WHERE umoptions IS NULL").
+		Scan(&unreadableCount)
+	if err != nil {
+		return fmt.Errorf("cannot check user mapping options: %w", err)
+	}
+
+	if unreadableCount > 0 {
+		return fmt.Errorf(
+			"database has %d user mapping(s) whose options this role cannot read; their "+
+				"credentials would be lost on restore — back up as a superuser or the foreign "+
+				"server/mapping owner, or enable 'skip user mappings'",
+			unreadableCount,
+		)
 	}
 
 	return nil

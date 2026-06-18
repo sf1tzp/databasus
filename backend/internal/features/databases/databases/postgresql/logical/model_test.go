@@ -173,8 +173,101 @@ func Test_PostgresqlModel_AcrossSupportedVersions(t *testing.T) {
 			t.Run("Test_CreateReadOnlyUser_PublicSchemaExistsButNoPermissions_ReturnsError", func(t *testing.T) {
 				testCreateReadOnlyUserPublicSchemaExistsButNoPermissions(t, endpoint, dbVersion.tag)
 			})
+
+			t.Run("Test_TestConnection_WhenUserMappingUnreadableAndFlagFalse_ReturnsError", func(t *testing.T) {
+				testConnectionUserMappingUnreadableFlagFalse(t, endpoint, dbVersion.tag)
+			})
+
+			t.Run("Test_TestConnection_WhenUserMappingUnreadableAndFlagTrue_NoError", func(t *testing.T) {
+				testConnectionUserMappingUnreadableFlagTrue(t, endpoint, dbVersion.tag)
+			})
 		})
 	}
+}
+
+// setupUnreadableUserMappingModel sets up a superuser-owned user mapping and a limited role that
+// passes the backup-permission checks (CONNECT/USAGE/SELECT) yet cannot read the mapping's options.
+// postgres_fdw stands in for oracle_fdw, which is not installable in CI.
+func setupUnreadableUserMappingModel(
+	t *testing.T,
+	container *PostgresContainer,
+	version string,
+) *PostgresqlLogicalDatabase {
+	suffix := uuid.New().String()[:8]
+	limitedUsername := fmt.Sprintf("um_limited_%s", suffix)
+	limitedPassword := "limitedpassword123"
+	serverName := fmt.Sprintf("um_test_srv_%s", suffix)
+	tableName := fmt.Sprintf("um_test_table_%s", suffix)
+
+	setupStatements := []string{
+		fmt.Sprintf(`CREATE TABLE %s (id SERIAL PRIMARY KEY, data TEXT NOT NULL)`, tableName),
+		fmt.Sprintf(`INSERT INTO %s (data) VALUES ('row1')`, tableName),
+		`CREATE EXTENSION IF NOT EXISTS postgres_fdw`,
+		fmt.Sprintf(
+			`CREATE SERVER %s FOREIGN DATA WRAPPER postgres_fdw OPTIONS (host 'localhost', dbname 'postgres')`,
+			serverName,
+		),
+		fmt.Sprintf(
+			`CREATE USER MAPPING FOR CURRENT_USER SERVER %s OPTIONS ("user" 'remote', password 'secret')`,
+			serverName,
+		),
+		fmt.Sprintf(`CREATE USER "%s" WITH PASSWORD '%s' LOGIN`, limitedUsername, limitedPassword),
+		fmt.Sprintf(`GRANT CONNECT ON DATABASE "%s" TO "%s"`, container.Database, limitedUsername),
+		fmt.Sprintf(`GRANT USAGE ON SCHEMA public TO "%s"`, limitedUsername),
+		fmt.Sprintf(`GRANT SELECT ON %s TO "%s"`, tableName, limitedUsername),
+	}
+
+	for _, statement := range setupStatements {
+		_, err := container.DB.Exec(statement)
+		assert.NoError(t, err)
+	}
+
+	t.Cleanup(func() {
+		_, _ = container.DB.Exec(fmt.Sprintf(`DROP SERVER IF EXISTS %s CASCADE`, serverName))
+		_, _ = container.DB.Exec(fmt.Sprintf(`DROP TABLE IF EXISTS %s CASCADE`, tableName))
+		_, _ = container.DB.Exec(fmt.Sprintf(`DROP OWNED BY "%s"`, limitedUsername))
+		_, _ = container.DB.Exec(fmt.Sprintf(`DROP USER IF EXISTS "%s"`, limitedUsername))
+	})
+
+	return &PostgresqlLogicalDatabase{
+		Version:  tools.GetPostgresqlVersionEnum(version),
+		Host:     container.Host,
+		Port:     container.Port,
+		Username: limitedUsername,
+		Password: limitedPassword,
+		Database: &container.Database,
+		SslMode:  postgresql_shared.PostgresSslModeDisable,
+		CpuCount: 1,
+	}
+}
+
+func testConnectionUserMappingUnreadableFlagFalse(t *testing.T, endpoint containers.Endpoint, version string) {
+	container := connectToPostgresEndpoint(t, endpoint)
+	defer container.DB.Close()
+
+	limitedModel := setupUnreadableUserMappingModel(t, container, version)
+	limitedModel.IsSkipUserMappings = false
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	err := limitedModel.TestConnection(logger, nil)
+	assert.Error(t, err)
+	if err != nil {
+		assert.Contains(t, err.Error(), "user mapping")
+	}
+}
+
+func testConnectionUserMappingUnreadableFlagTrue(t *testing.T, endpoint containers.Endpoint, version string) {
+	container := connectToPostgresEndpoint(t, endpoint)
+	defer container.DB.Close()
+
+	limitedModel := setupUnreadableUserMappingModel(t, container, version)
+	limitedModel.IsSkipUserMappings = true
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	err := limitedModel.TestConnection(logger, nil)
+	assert.NoError(t, err)
 }
 
 func testConnectionInsufficientPermissions(t *testing.T, endpoint containers.Endpoint, version string) {

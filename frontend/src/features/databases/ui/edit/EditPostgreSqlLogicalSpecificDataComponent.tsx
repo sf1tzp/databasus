@@ -89,7 +89,8 @@ export const EditPostgreSqlLogicalSpecificDataComponent = ({
         !!database.postgresqlLogical?.isRestoreOwnership ||
         !!database.postgresqlLogical?.isRestorePrivileges
       : !!database.postgresqlLogical?.includeSchemas?.length ||
-        !!database.postgresqlLogical?.excludeTables?.length);
+        !!database.postgresqlLogical?.excludeTables?.length ||
+        !!database.postgresqlLogical?.isSkipUserMappings);
   const [isShowAdvanced, setShowAdvanced] = useState(hasAdvancedValues);
 
   const [hasAutoAddedPublicSchema, setHasAutoAddedPublicSchema] = useState(false);
@@ -685,6 +686,34 @@ export const EditPostgreSqlLogicalSpecificDataComponent = ({
                 >
                   <InfoCircleOutlined className="ml-2" style={{ color: 'gray' }} />
                 </Tooltip>
+              </div>
+            )}
+
+            {!isRestoreMode && (
+              <div className="mb-1 flex w-full items-center">
+                <div className="flex min-w-[150px] items-center">
+                  <span>Skip user mappings</span>
+                  <Tooltip
+                    className="cursor-pointer"
+                    title="Skip restoring user mappings (CREATE USER MAPPING statements). Enable this when the backup role cannot read the mapping credentials - otherwise they are dumped without options and break restore for FDWs like oracle_fdw."
+                  >
+                    <InfoCircleOutlined className="ml-2" style={{ color: 'gray' }} />
+                  </Tooltip>
+                </div>
+                <Checkbox
+                  checked={editingDatabase.postgresqlLogical?.isSkipUserMappings || false}
+                  onChange={(e) => {
+                    if (!editingDatabase.postgresqlLogical) return;
+
+                    setEditingDatabase({
+                      ...editingDatabase,
+                      postgresqlLogical: {
+                        ...editingDatabase.postgresqlLogical,
+                        isSkipUserMappings: e.target.checked,
+                      },
+                    });
+                  }}
+                />
               </div>
             )}
 

@@ -13,3 +13,8 @@ type RestoreBackupRequest struct {
 	MariadbDatabase           *mariadb.MariadbDatabase                      `json:"mariadbDatabase"`
 	MongodbDatabase           *mongodb.MongodbDatabase                      `json:"mongodbDatabase"`
 }
+
+type RestoreOptions struct {
+	IsExcludeExtensions bool
+	IsSkipUserMappings  bool
+}

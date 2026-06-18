@@ -18,6 +18,6 @@ type RestoreBackupUsecase interface {
 		restoringToDB *databases.Database,
 		backup *backups_core_logical.LogicalBackup,
 		storage *storages.Storage,
-		isExcludeExtensions bool,
+		options RestoreOptions,
 	) error
 }

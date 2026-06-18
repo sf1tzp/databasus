@@ -129,9 +129,14 @@ func (r *Restorer) MakeRestore(restoreID uuid.UUID) {
 		return
 	}
 
-	isExcludeExtensions := false
+	// IsExcludeExtensions is a transient choice carried on the target config from the restore
+	// request; IsSkipUserMappings is a persisted property of the source database being restored.
+	restoreOptions := restores_core.RestoreOptions{}
 	if dbCache.PostgresqlLogicalDatabase != nil {
-		isExcludeExtensions = dbCache.PostgresqlLogicalDatabase.IsExcludeExtensions
+		restoreOptions.IsExcludeExtensions = dbCache.PostgresqlLogicalDatabase.IsExcludeExtensions
+	}
+	if database.PostgresqlLogical != nil {
+		restoreOptions.IsSkipUserMappings = database.PostgresqlLogical.IsSkipUserMappings
 	}
 
 	err = r.restoreBackupUsecase.Execute(
@@ -142,7 +147,7 @@ func (r *Restorer) MakeRestore(restoreID uuid.UUID) {
 		restoringToDB,
 		backup,
 		storage,
-		isExcludeExtensions,
+		restoreOptions,
 	)
 	if err != nil {
 		errMsg := err.Error()

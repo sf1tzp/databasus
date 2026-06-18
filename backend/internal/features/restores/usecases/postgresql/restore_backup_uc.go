@@ -44,7 +44,7 @@ func (uc *RestorePostgresqlBackupUsecase) Execute(
 	restore restores_core.Restore,
 	backup *backups_core_logical.LogicalBackup,
 	storage *storages.Storage,
-	isExcludeExtensions bool,
+	options restores_core.RestoreOptions,
 ) error {
 	if originalDB.Type != databases.DatabaseTypePostgresLogical {
 		return errors.New("database type not supported")
@@ -77,7 +77,7 @@ func (uc *RestorePostgresqlBackupUsecase) Execute(
 		backup,
 		storage,
 		pg,
-		isExcludeExtensions,
+		options,
 	)
 }
 
@@ -89,7 +89,7 @@ func (uc *RestorePostgresqlBackupUsecase) restoreCustomType(
 	backup *backups_core_logical.LogicalBackup,
 	storage *storages.Storage,
 	pg *pgtypes.PostgresqlLogicalDatabase,
-	isExcludeExtensions bool,
+	options restores_core.RestoreOptions,
 ) error {
 	uc.logger.Info(
 		"Restoring backup in custom type (-Fc)",
@@ -99,12 +99,13 @@ func (uc *RestorePostgresqlBackupUsecase) restoreCustomType(
 		pg.CpuCount,
 	)
 
-	// File-based restore for parallel jobs (multiple CPUs) or extension exclusion (needs a TOC file);
-	// otherwise stream directly via stdin. A timescaledb backup uses whichever path applies — the
-	// pre/post hooks wrap it the same way (they only set a database-level GUC, so streaming is kept).
+	// File-based restore for parallel jobs (multiple CPUs) or any TOC filtering (extension exclusion
+	// or skipping user mappings needs a TOC file); otherwise stream directly via stdin. A timescaledb
+	// backup uses whichever path applies — the pre/post hooks wrap it the same way (they only set a
+	// database-level GUC, so streaming is kept).
 	runRestore := func() error {
-		if isExcludeExtensions || pg.CpuCount > 1 {
-			return uc.restoreViaFile(parentCtx, originalDB, pgBin, backup, storage, pg, isExcludeExtensions)
+		if options.IsExcludeExtensions || options.IsSkipUserMappings || pg.CpuCount > 1 {
+			return uc.restoreViaFile(parentCtx, originalDB, pgBin, backup, storage, pg, options)
 		}
 
 		return uc.restoreViaStdin(parentCtx, originalDB, pgBin, backup, storage, pg)
@@ -378,7 +379,7 @@ func (uc *RestorePostgresqlBackupUsecase) restoreViaFile(
 	backup *backups_core_logical.LogicalBackup,
 	storage *storages.Storage,
 	pg *pgtypes.PostgresqlLogicalDatabase,
-	isExcludeExtensions bool,
+	options restores_core.RestoreOptions,
 ) error {
 	uc.logger.Info(
 		"Restoring via file with parallel jobs",
@@ -429,7 +430,7 @@ func (uc *RestorePostgresqlBackupUsecase) restoreViaFile(
 		backup,
 		storage,
 		pg,
-		isExcludeExtensions,
+		options,
 	)
 }
 
@@ -443,7 +444,7 @@ func (uc *RestorePostgresqlBackupUsecase) restoreFromStorage(
 	backup *backups_core_logical.LogicalBackup,
 	storage *storages.Storage,
 	pgConfig *pgtypes.PostgresqlLogicalDatabase,
-	isExcludeExtensions bool,
+	options restores_core.RestoreOptions,
 ) error {
 	uc.logger.Info(
 		"Restoring PostgreSQL backup from storage via temporary file",
@@ -452,7 +453,9 @@ func (uc *RestorePostgresqlBackupUsecase) restoreFromStorage(
 		"args",
 		args,
 		"isExcludeExtensions",
-		isExcludeExtensions,
+		options.IsExcludeExtensions,
+		"isSkipUserMappings",
+		options.IsSkipUserMappings,
 	)
 
 	ctx, cancel := context.WithTimeout(parentCtx, 23*time.Hour)
@@ -497,14 +500,14 @@ func (uc *RestorePostgresqlBackupUsecase) restoreFromStorage(
 	}
 	defer cleanupFunc()
 
-	// If excluding extensions, generate filtered TOC list and use it
-	if isExcludeExtensions {
+	if options.IsExcludeExtensions || options.IsSkipUserMappings {
 		tocListFile, err := uc.generateFilteredTocList(
 			ctx,
 			pgBin,
 			tempBackupFile,
 			credentials,
 			pgConfig,
+			options,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to generate filtered TOC list: %w", err)
@@ -913,16 +916,17 @@ func containsIgnoreCase(str, substr string) bool {
 	return strings.Contains(strings.ToLower(str), strings.ToLower(substr))
 }
 
-// generateFilteredTocList generates a pg_restore TOC list file with extensions filtered out.
-// This is used when isExcludeExtensions is true to skip CREATE EXTENSION statements.
+// generateFilteredTocList writes a pg_restore TOC list (for -L) with the object classes selected
+// by options dropped, so pg_restore skips them.
 func (uc *RestorePostgresqlBackupUsecase) generateFilteredTocList(
 	ctx context.Context,
 	pgBin string,
 	backupFile string,
 	credentials *postgresql_shared.CredentialTempFiles,
 	pgConfig *pgtypes.PostgresqlLogicalDatabase,
+	options restores_core.RestoreOptions,
 ) (string, error) {
-	uc.logger.Info("Generating filtered TOC list to exclude extensions", "backupFile", backupFile)
+	uc.logger.Info("Generating filtered TOC list", "backupFile", backupFile)
 
 	// Run pg_restore -l to get the TOC list
 	listCmd := exec.CommandContext(ctx, pgBin, "-l", backupFile)
@@ -933,7 +937,17 @@ func (uc *RestorePostgresqlBackupUsecase) generateFilteredTocList(
 		return "", fmt.Errorf("failed to generate TOC list: %w", err)
 	}
 
-	// Filter out EXTENSION-related lines (both CREATE EXTENSION and COMMENT ON EXTENSION)
+	// " EXTENSION " catches both CREATE EXTENSION ("3420; 0 0 EXTENSION - uuid-ossp") and
+	// COMMENT ON EXTENSION ("3462; 0 0 COMMENT - EXTENSION "uuid-ossp"") entries.
+	isExtensionEntry := func(upperLine string) bool {
+		return strings.Contains(upperLine, " EXTENSION ")
+	}
+	// " USER MAPPING " catches CREATE USER MAPPING entries
+	// ("18239; 0 0 USER MAPPING - platform SERVER oracle_tb_server").
+	isUserMappingEntry := func(upperLine string) bool {
+		return strings.Contains(upperLine, " USER MAPPING ")
+	}
+
 	var filteredLines []string
 	for line := range strings.SplitSeq(string(tocOutput), "\n") {
 		trimmedLine := strings.TrimSpace(line)
@@ -943,11 +957,13 @@ func (uc *RestorePostgresqlBackupUsecase) generateFilteredTocList(
 
 		upperLine := strings.ToUpper(trimmedLine)
 
-		// Skip lines that contain " EXTENSION " - this catches both:
-		// - CREATE EXTENSION entries: "3420; 0 0 EXTENSION - uuid-ossp"
-		// - COMMENT ON EXTENSION entries: "3462; 0 0 COMMENT - EXTENSION "uuid-ossp""
-		if strings.Contains(upperLine, " EXTENSION ") {
+		if options.IsExcludeExtensions && isExtensionEntry(upperLine) {
 			uc.logger.Info("Excluding extension-related entry from restore", "tocLine", trimmedLine)
+			continue
+		}
+
+		if options.IsSkipUserMappings && isUserMappingEntry(upperLine) {
+			uc.logger.Info("Excluding user mapping entry from restore", "tocLine", trimmedLine)
 			continue
 		}
 

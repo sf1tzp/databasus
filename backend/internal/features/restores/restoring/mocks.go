@@ -21,7 +21,7 @@ func (uc *MockSuccessRestoreUsecase) Execute(
 	restoringToDB *databases.Database,
 	backup *backups_core_logical.LogicalBackup,
 	storage *storages.Storage,
-	isExcludeExtensions bool,
+	options restores_core.RestoreOptions,
 ) error {
 	return nil
 }
@@ -36,7 +36,7 @@ func (uc *MockFailedRestoreUsecase) Execute(
 	restoringToDB *databases.Database,
 	backup *backups_core_logical.LogicalBackup,
 	storage *storages.Storage,
-	isExcludeExtensions bool,
+	options restores_core.RestoreOptions,
 ) error {
 	return errors.New("restore failed")
 }
@@ -54,7 +54,7 @@ func (uc *MockCaptureCredentialsRestoreUsecase) Execute(
 	restoringToDB *databases.Database,
 	backup *backups_core_logical.LogicalBackup,
 	storage *storages.Storage,
-	isExcludeExtensions bool,
+	options restores_core.RestoreOptions,
 ) error {
 	uc.CalledChan <- restoringToDB
 
@@ -76,7 +76,7 @@ func (uc *MockBlockingRestoreUsecase) Execute(
 	restoringToDB *databases.Database,
 	backup *backups_core_logical.LogicalBackup,
 	storage *storages.Storage,
-	isExcludeExtensions bool,
+	options restores_core.RestoreOptions,
 ) error {
 	if uc.StartedChan != nil {
 		uc.StartedChan <- true

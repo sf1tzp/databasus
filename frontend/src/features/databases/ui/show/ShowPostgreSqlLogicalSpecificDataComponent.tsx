@@ -84,6 +84,13 @@ export const ShowPostgreSqlLogicalSpecificDataComponent = ({ database }: Props) 
           <div>{database.postgresqlLogical.excludeTables.join(', ')}</div>
         </div>
       )}
+
+      {!!database.postgresqlLogical?.isSkipUserMappings && (
+        <div className="mb-1 flex w-full items-center">
+          <div className="min-w-[150px]">Skip user mappings</div>
+          <div>Yes</div>
+        </div>
+      )}
     </div>
   );
 };
