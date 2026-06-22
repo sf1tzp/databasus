@@ -17,5 +17,22 @@ export const validateTelegramNotifier = (
     return false;
   }
 
+  if (notifier.isHttpProxyEnabled) {
+    if (!notifier.httpProxyUrl && !notifier.hasHttpProxyUrl) {
+      return false;
+    }
+
+    if (notifier.httpProxyUrl) {
+      try {
+        const proxyUrl = new URL(notifier.httpProxyUrl);
+        if (proxyUrl.protocol !== 'http:' || !proxyUrl.host) {
+          return false;
+        }
+      } catch {
+        return false;
+      }
+    }
+  }
+
   return true;
 };
